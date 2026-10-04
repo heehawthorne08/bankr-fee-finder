@@ -1,0 +1,25 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Bankr fee finder</title>
+<style>:root{--bg:#fff;--fg:#111;--mu:#666;--bd:#ddd;--ac:#0a5}@media(prefers-color-scheme:dark){:root{--bg:#111;--fg:#eee;--mu:#999;--bd:#333;--ac:#4d8}}
+body{margin:0;padding:12px;font:14px system-ui,sans-serif;background:var(--bg);color:var(--fg)}h1{font-size:18px;margin:0 0 4px}.mu{color:var(--mu);font-size:12px}
+.f{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}input,select,button{font:inherit;padding:6px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--fg)}
+.w{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:560px}th,td{padding:6px 8px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}th{cursor:pointer}a{color:var(--ac)}</style></head><body>
+<h1>Bankr fee finder</h1><div class="mu">Launches where the fee recipient's X account differs from the deployer's. <span id="u">loading…</span></div>
+<div class="f"><input id="q" placeholder="search handle, token, address"><select id="v"><option value="r">by recipient</option><option value="t">by token</option></select>
+<select id="c"><option value="">all chains</option></select><input id="m" type="number" min="0" step="0.01" value="0" style="width:90px" title="min USD"><label><input id="b" type="checkbox"> hide Bankr deployers</label><button id="e">CSV</button></div>
+<div class="w"><table><thead id="h"></thead><tbody id="t"></tbody></table></div>
+<script>
+const $=s=>document.querySelector(s),X=l=>(l.feeRecipient&&l.feeRecipient.xUsername)||'',DX=l=>(l.deployer&&l.deployer.xUsername)||'',U=l=>(l.unclaimedFees&&l.unclaimedFees.usdValue)||0,W=l=>(l.unclaimedFees&&+l.unclaimedFees.wethAmount)||0;
+let D=[],S={k:'usd',d:-1},R=[];
+fetch('data/launches.json').then(r=>r.json()).then(j=>{D=j.launches;$('#u').textContent='updated '+new Date(j.updated*1000).toLocaleString()+' · '+D.length+' launches tracked';[...new Set(D.map(l=>l.chain))].forEach(c=>$('#c').add(new Option(c,c)));go()});
+['q','v','c','m','b'].forEach(i=>$('#'+i).oninput=go);$('#e').onclick=csv;
+function go(){const q=$('#q').value.toLowerCase(),c=$('#c').value,m=+$('#m').value,hb=$('#b').checked,by=$('#v').value==='r';
+const dep=new Set(D.map(l=>DX(l).toLowerCase()).filter(Boolean));
+let L=D.filter(l=>X(l)&&X(l).toLowerCase()!==DX(l).toLowerCase()&&(!c||l.chain===c)&&U(l)>=m&&(!hb||!dep.has(X(l).toLowerCase()))&&(!q||JSON.stringify([X(l),DX(l),l.tokenName,l.tokenSymbol,l.tokenAddress]).toLowerCase().includes(q)));
+if(by){const g={};L.forEach(l=>{const k=X(l).toLowerCase(),r=g[k]=g[k]||{recipient:X(l),tokens:0,usd:0,weth:0,bankr_user:dep.has(k)?'yes':'no',example:l.tweetUrl};r.tokens++;r.usd+=U(l);r.weth+=W(l)});R=Object.values(g)}
+else R=L.map(l=>({token:l.tokenSymbol,name:l.tokenName,chain:l.chain,recipient:X(l),deployer:DX(l)||'(no X)',usd:U(l),weth:W(l),launched:new Date(l.timestamp).toISOString().slice(0,10),tweet:l.tweetUrl,address:l.tokenAddress}));
+R.sort((a,b)=>(a[S.k]>b[S.k]?1:-1)*S.d);draw()}
+function draw(){const ks=R[0]?Object.keys(R[0]):[];$('#h').innerHTML='<tr>'+ks.map(k=>`<th data-k="${k}">${k}${S.k===k?(S.d<0?' ▼':' ▲'):''}</th>`).join('')+'</tr>';
+$('#t').innerHTML=R.slice(0,500).map(r=>'<tr>'+ks.map(k=>{let v=r[k];if(k==='usd')v='$'+v.toFixed(2);else if(k==='weth')v=v.toFixed(6);else if(k==='recipient')v=`<a href="https://x.com/${v}" target="_blank" rel="noopener">@${v}</a>`;else if(k==='tweet'||k==='example')v=v?`<a href="${v}" target="_blank" rel="noopener">tweet</a>`:'';else if(k==='address')v=`<a href="https://basescan.org/token/${v}" target="_blank" rel="noopener">${v.slice(0,8)}…</a>`;return`<td>${v}</td>`}).join('')+'</tr>').join('')||'<tr><td>no matches yet</td></tr>';
+document.querySelectorAll('th').forEach(t=>t.onclick=()=>{S={k:t.dataset.k,d:S.k===t.dataset.k?-S.d:-1};go()})}
+function csv(){if(!R.length)return;const ks=Object.keys(R[0]),s=[ks.join(',')].concat(R.map(r=>ks.map(k=>JSON.stringify(r[k]??'')).join(','))).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([s],{type:'text/csv'}));a.download='bankr-fees.csv';a.click()}
+</script></body></html>
